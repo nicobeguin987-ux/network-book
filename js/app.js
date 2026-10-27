@@ -93,6 +93,7 @@ async function connect(){
   try { db = await openStore(); }
   catch(e){ db=null; setSync('off','Storage blocked'); return; }
   setSync('on','Saved on this device');
+  { const m=Object.fromEntries(db.collection('meta').all()); S.settings=m.settings||{}; S.imports=m.imports||{}; }  // read settings now, not on the first snapshot
   const m2o=s=>{ const m={}; s.docs.forEach(x=>m[x.id]=x.data()); return m; };
   db.collection('people').onSnapshot(s=>{ S.people=m2o(s); render(); }, onDbErr);
   db.collection('notes').onSnapshot(s=>{ S.notes=s.docs.map(x=>Object.assign({id:x.id},x.data())); render(); }, onDbErr);
@@ -962,6 +963,7 @@ document.addEventListener('change', async ev => {
   else if(t.id==='jkind'){ UI.jKind=t.value; render(); }
   else if(t.id==='jind'){ UI.jInd=t.value; render(); }
   else if(t.id==='jtag'){ UI.jTag=t.value; render(); }
+  else if(/^set-(name|about|sign|tone|fu|city|dates|tag|rules|key|model|gid)$/.test(t.id)){ saveSettings(); }
   else if(t.id==='impfile' && t.files && t.files[0]){ importCsv(t.files[0]); t.value=''; }
   else if(t.id==='restfile' && t.files && t.files[0]){ restoreBackup(t.files[0]); t.value=''; }
   else if(t.id==='agoal'){ UI.act.goal=t.value; UI.act.touched=true; UI.act.off=new Set(); render(); }
@@ -1016,7 +1018,7 @@ async function saveSettings(){
   if(cur.googleClientId) cur.googleClientId=cur.googleClientId.replace(/\s+/g,'').toLowerCase();
   if(cur.apiKey) cur.apiKey=cur.apiKey.replace(/\s+/g,'');
   S.settings=cur;
-  try{ await db.collection('meta').doc('settings').set(cur); rebuildBase(); toast('Settings saved'); }catch(e){ handleWriteErr(e); }
+  try{ await db.collection('meta').doc('settings').set(cur); rebuildBase(); toast(UI.view==='settings'?'Saved':'Settings saved'); }catch(e){ handleWriteErr(e); }
 }
 async function testKey(){
   await saveSettings(); const sample=await getSample(); if(!sample){ toast(NO_KEY); return; }
@@ -1089,7 +1091,7 @@ function vWelcome(){
 }
 function vSettings(){
   const s=SET(); const gOn=G.googleConnected();
-  return `${banner()}<div class="head"><div><h1>Settings</h1><div class="sub">Stored in this browser only. Nothing here is ever written to the repo.</div></div><button class="btn pri" data-act="saveset">Save settings</button></div>
+  return `${banner()}<div class="head"><div><h1>Settings</h1><div class="sub">Stored in this browser only, and saved as soon as you change a field. Nothing here is ever written to the repo.</div></div><button class="btn pri" data-act="saveset">Save settings</button></div>
   <div class="setgrid">
     <section class="card pad"><h2>About you</h2><div class="hint" style="margin-bottom:10px">Claude uses this in every draft.</div>
       <div class="kv"><span class="k">First name</span><input class="inp" id="set-name" value="${esc(s.name)}" placeholder="e.g. Nico">
