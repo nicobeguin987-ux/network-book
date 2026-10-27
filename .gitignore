@@ -1,0 +1,7 @@
+# Never commit personal data in clear text
+*.csv
+*backup*.json
+passphrase*
+.env
+.DS_Store
+node_modules/
