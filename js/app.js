@@ -1012,6 +1012,8 @@ async function saveSettings(){
   const map={name:'set-name',about:'set-about',signoff:'set-sign',tone:'set-tone',followDays:'set-fu',tripCity:'set-city',tripDates:'set-dates',tripTag:'set-tag',tagRules:'set-rules',apiKey:'set-key',model:'set-model',googleClientId:'set-gid'};
   const cur=Object.assign({},S.settings||{});
   for(const [k,id] of Object.entries(map)){ const v=field(id); if(v!==undefined) cur[k]=k==='followDays'?(+v||7):String(v).trim(); }
+  if(cur.googleClientId) cur.googleClientId=cur.googleClientId.replace(/\s+/g,'').toLowerCase();
+  if(cur.apiKey) cur.apiKey=cur.apiKey.replace(/\s+/g,'');
   S.settings=cur;
   try{ await db.collection('meta').doc('settings').set(cur); rebuildBase(); toast('Settings saved'); }catch(e){ handleWriteErr(e); }
 }
@@ -1099,11 +1101,11 @@ function vSettings(){
       <span class="k">Dates</span><input class="inp" id="set-dates" value="${esc(s.tripDates)}" placeholder="e.g. from 17 to 20 November">
       <span class="k">Tag</span><input class="inp" id="set-tag" value="${esc(s.tripTag)}" placeholder="Trip"></div></section>
     <section class="card pad"><h2>Claude</h2><div class="hint" style="margin-bottom:10px">Create a key at console.anthropic.com → API keys, and set a monthly spend limit there. The key stays in this browser and is sent only to Anthropic.</div>
-      <div class="kv"><span class="k">API key</span><span style="display:flex;gap:6px"><input class="inp mono" type="password" id="set-key" value="${esc(s.apiKey)}" placeholder="sk-ant-…" autocomplete="off" style="flex:1"><button class="btn sm ghost" data-act="showkey">Show</button></span>
+      <div class="kv"><span class="k">API key</span><span style="display:flex;gap:6px"><input class="inp mono" type="password" id="set-key" value="${esc(s.apiKey)}" placeholder="sk-ant-…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="flex:1"><button class="btn sm ghost" data-act="showkey">Show</button></span>
       <span class="k">Model</span><select class="inp" id="set-model">${MODELS.map(([v,l])=>`<option value="${v}" ${s.model===v?'selected':''}>${l}</option>`).join('')}</select></div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:10px"><button class="btn sm" data-act="testkey">Save and test</button><span class="hint">${esc(UI.keyMsg||'')}</span></div></section>
     <section class="card pad"><h2>Google (Gmail drafts, Calendar events)</h2><div class="hint" style="margin-bottom:10px">Paste the OAuth client ID from your Google Cloud project (setup steps in the README). Without it, the buttons open pre-filled Gmail and Calendar pages instead.</div>
-      <div class="kv"><span class="k">Client ID</span><input class="inp mono" id="set-gid" value="${esc(s.googleClientId)}" placeholder="1234-abc.apps.googleusercontent.com">
+      <div class="kv"><span class="k">Client ID</span><input class="inp mono" id="set-gid" value="${esc(s.googleClientId)}" placeholder="1234-abc.apps.googleusercontent.com" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="url">${s.googleClientId&&!/^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(s.googleClientId)?'<span class="hint" style="grid-column:2;color:var(--danger)">This does not look like a client ID. It should be digits, a dash, letters and digits, then .apps.googleusercontent.com</span>':''}
       <span class="k">Status</span><span>${gOn?'<span class="st st-met">Connected for this session</span> <button class="btn sm ghost" data-act="gdisconnect">Disconnect</button>':s.googleClientId?'<button class="btn sm" data-act="gconnect">Connect Google</button>':'<span class="hint">Add a client ID, save, then connect.</span>'}</span></div></section>
     <section class="card pad"><h2>Automatic tags</h2><div class="hint" style="margin-bottom:10px">One rule per line: <span class="mono">Company = Tag</span>. Applied to everyone at that company.</div>
       <textarea class="inp mono" id="set-rules" style="min-height:90px" placeholder="Lincoln International = Ex-Lincoln&#10;Houlihan Lokey = Colleague">${esc(s.tagRules)}</textarea></section>
