@@ -1050,13 +1050,13 @@ async function checkVault(){
   try{ const r=await fetch('data/vault.json',{cache:'no-store'}); if(r.ok){ const j=await r.json(); if(j&&j.app==='network-book'&&j.data){ VAULT=j; render(); } } }catch(e){ /* no bundle */ }
 }
 async function unlockVault(){
-  if(!VAULT||!needDb()) return; const pass=field('vpass')||''; if(!pass){ toast('Type the passphrase'); return; }
+  if(!VAULT||!needDb()) return; const pass=(field('vpass')||'').trim().toLowerCase().replace(/[‐-―−]/g,'-'); if(!pass){ toast('Type the passphrase'); return; }
   UI.vmsg='Decrypting…'; render();
   try{ const j=await decryptJson(VAULT, pass); await applyDump(j.stores); UI.vmsg=''; toast('Unlocked. Your network is ready.'); location.hash='#home'; setView('home'); }
   catch(e){ UI.vmsg=e.code==='bad_passphrase'?'That passphrase does not match. Check capitals and spaces.':'Could not open the saved data: '+e.message; render(); }
 }
 async function makeVault(){
-  if(!needDb()) return; const p1=field('vp1')||'', p2=field('vp2')||'';
+  if(!needDb()) return; const p1=(field('vp1')||'').trim(), p2=(field('vp2')||'').trim();
   if(p1.length<12){ toast('Use at least 12 characters, ideally 4 or more random words'); return; }
   if(p1!==p2){ toast('The two passphrases differ'); return; }
   UI.vaultMsg='Encrypting…'; render();
@@ -1074,7 +1074,7 @@ function vWelcome(){
     <div id="wmsg">${welcomeMsg()}</div>
     <div class="wgrid">
       ${VAULT?`<section class="card pad"><h2>Unlock your saved network</h2><div class="sub" style="margin:0 0 12px">This copy of the app comes with an encrypted data file. Enter its passphrase to load your contacts, notes and to-dos into this browser.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap"><input class="inp" type="password" id="vpass" placeholder="Passphrase" autocomplete="current-password" style="flex:1;min-width:200px"><button class="btn pri" data-act="unlock">Unlock</button></div></section>`:''}
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><input class="inp" type="password" id="vpass" placeholder="Passphrase" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" style="flex:1;min-width:200px"><button class="btn pri" data-act="unlock">Unlock</button></div></section>`:''}
       <section class="card pad"><h2>${VAULT?'Or start':'Start'} from your LinkedIn export</h2>
         <ol class="steps"><li>On LinkedIn, open <b>Settings &amp; Privacy → Data privacy → Get a copy of your data</b>.</li><li>Choose <b>Download larger data archive</b> and request it. The email usually arrives within minutes.</li><li>Unzip it and pick <b>Connections.csv</b> below.</li></ol>
         <label class="btn pri" for="impfile">Choose Connections.csv</label><input type="file" id="impfile" accept=".csv,text/csv" hidden>
