@@ -4,6 +4,13 @@
 
 const SCOPES = 'https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/calendar.events';
 let gisLoading = null, tokenClient = null, clientIdInUse = '', token = null, tokenExp = 0, pendingResolve = null, pendingReject = null;
+// Keep the short-lived token across page reloads until it expires (about an hour),
+// and remember that consent was given so reconnecting skips the consent screen.
+const KEY = 'nb.google';
+function loadSaved() { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { return {}; } }
+function save(o) { try { localStorage.setItem(KEY, JSON.stringify(Object.assign(loadSaved(), o))); } catch (e) { /* storage blocked */ } }
+{ const sv = loadSaved(); if (sv.token && sv.exp > Date.now() + 60000) { token = sv.token; tokenExp = sv.exp; } }
+export function googleConsented() { return !!loadSaved().granted; }
 
 function loadGis() {
   if (window.google && window.google.accounts && window.google.accounts.oauth2) return Promise.resolve();
@@ -30,25 +37,26 @@ export async function connectGoogle(clientId) {
     tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id: clientId, scope: SCOPES,
       callback: r => {
-        if (r && r.access_token) { token = r.access_token; tokenExp = Date.now() + (Number(r.expires_in) || 3600) * 1000; pendingResolve && pendingResolve(); }
+        if (r && r.access_token) { token = r.access_token; tokenExp = Date.now() + (Number(r.expires_in) || 3600) * 1000; save({ token, exp: tokenExp, granted: true }); pendingResolve && pendingResolve(); }
         else pendingReject && pendingReject(Object.assign(new Error((r && r.error_description) || 'Google sign-in was not completed.'), { code: 'denied' }));
         pendingResolve = pendingReject = null;
       },
       error_callback: e => { pendingReject && pendingReject(Object.assign(new Error(e && e.type === 'popup_closed' ? 'The Google window was closed.' : 'Google sign-in failed or the popup was blocked.'), { code: 'denied' })); pendingResolve = pendingReject = null; },
     });
   }
-  return new Promise((resolve, reject) => { pendingResolve = resolve; pendingReject = reject; tokenClient.requestAccessToken({ prompt: token ? '' : 'consent' }); });
+  return new Promise((resolve, reject) => { pendingResolve = resolve; pendingReject = reject; tokenClient.requestAccessToken({ prompt: googleConsented() ? '' : 'consent' }); });
 }
 
 export function disconnectGoogle() {
   if (token && window.google && window.google.accounts) window.google.accounts.oauth2.revoke(token, () => {});
   token = null; tokenExp = 0;
+  try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
 }
 
 async function gapi(url, body) {
   if (!googleConnected()) throw Object.assign(new Error('Connect Google first.'), { code: 'not_connected' });
   const res = await fetch(url, { method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (res.status === 401) { token = null; throw Object.assign(new Error('Your Google session expired. Click “Connect Google” again.'), { code: 'not_connected' }); }
+  if (res.status === 401) { token = null; save({ token: null, exp: 0 }); throw Object.assign(new Error('Your Google session expired. Click “Connect Google” again.'), { code: 'not_connected' }); }
   let j = {}; try { j = await res.json(); } catch (e) { /* empty */ }
   if (!res.ok) {
     const m = (j.error && j.error.message) || ('HTTP ' + res.status);

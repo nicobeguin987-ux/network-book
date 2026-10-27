@@ -777,7 +777,7 @@ function reachOut(c){
     <textarea class="inp" id="dr-text" aria-label="Message" placeholder="Your message appears here. Edit freely.">${esc(saved?saved.text:'')}</textarea>
     ${dr.msg?`<div class="msg">${esc(dr.msg)}</div>`:''}
     <div class="r"><button class="btn sm" data-act="drcopy">Copy</button>${c.u?`<a class="btn sm" href="https://www.linkedin.com/in/${esc(c.u)}" target="_blank" rel="noopener">Open LinkedIn ↗</a>`:''}
-      ${dr.channel==='email'?(G.googleConnected()?`<button class="btn sm" data-act="gmail" ${c.e?'':'disabled title="Add their email under Classification"'}>Create Gmail draft</button>`:`<button class="btn sm" data-act="gmailopen">Open in Gmail</button>${SET().googleClientId?'<button class="btn sm ghost" data-act="gconnect">Connect Google</button>':''}`):''}
+      ${dr.channel==='email'?(G.googleConnected()||SET().googleClientId?`<button class="btn sm" data-act="gmail" ${c.e?'':'disabled title="Add their email under Classification"'}>Create Gmail draft</button>`:`<button class="btn sm" data-act="gmailopen">Open in Gmail</button>${SET().googleClientId?'<button class="btn sm ghost" data-act="gconnect">Connect Google</button>':''}`):''}
       <span style="flex:1"></span><button class="btn sm ghost" data-act="drsave">Save draft</button><button class="btn sm pri" data-act="drsent">Mark as sent</button></div>
     ${dr.gm?`<div class="msg">${esc(dr.gm)}</div>`:''}${dr.gmUrl?`<div class="hint"><a href="${esc(dr.gmUrl)}" target="_blank" rel="noopener">Open the draft in Gmail ↗</a></div>`:''}
     <div class="hint">“Mark as sent” logs the message in the journal, sets ${esc(c.fn||'them')} to Contacted and schedules a follow-up in ${SET().followDays} days.</div>
@@ -791,7 +791,7 @@ function scheduleBlock(c){
     <select class="inp" id="ev-dur" aria-label="Duration"><option value="30">30 min</option><option value="45" selected>45 min</option><option value="60">1 hour</option><option value="90">1 h 30</option></select>
     <input class="inp" id="ev-place" placeholder="Place (optional)" style="grid-column:1/3"><select class="inp" id="ev-tz" aria-label="Time zone"><option value="local">My time zone</option><option value="london">London time</option></select></div>
     <label class="hint" style="display:flex;gap:6px;align-items:center;margin-top:8px"><input type="checkbox" class="ck" id="ev-inv" ${c.e?'':'disabled'}>Send ${esc(c.fn||'them')} a calendar invite ${c.e?'('+esc(c.e)+')':'(add their email first)'}</label>
-    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">${G.googleConnected()?`<button class="btn sm pri ${ev.busy?'busy':''}" data-act="evcreate" ${ev.busy?'disabled':''}>Add to Google Calendar</button>`:`<button class="btn sm pri" data-act="evopen">Open in Google Calendar</button>${SET().googleClientId?'<button class="btn sm ghost" data-act="gconnect">Connect Google</button>':''}`}<span class="hint">${ev.done?esc(ev.done)+(ev.link?` <a href="${esc(ev.link)}" target="_blank" rel="noopener">Open ↗</a>`:''):ev.msg?`<span style="color:var(--danger)">${esc(ev.msg)}</span>`:'Also creates a prep to-do on the day.'}</span></div></details>`;
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px">${G.googleConnected()||SET().googleClientId?`<button class="btn sm pri ${ev.busy?'busy':''}" data-act="evcreate" ${ev.busy?'disabled':''}>Add to Google Calendar</button>`:`<button class="btn sm pri" data-act="evopen">Open in Google Calendar</button>${SET().googleClientId?'<button class="btn sm ghost" data-act="gconnect">Connect Google</button>':''}`}<span class="hint">${ev.done?esc(ev.done)+(ev.link?` <a href="${esc(ev.link)}" target="_blank" rel="noopener">Open ↗</a>`:''):ev.msg?`<span style="color:var(--danger)">${esc(ev.msg)}</span>`:'Also creates a prep to-do on the day.'}</span></div></details>`;
 }
 function prepBlock(c){
   const P=UI.prep&&UI.prep.cid===c.id?UI.prep:null;
@@ -934,14 +934,15 @@ document.addEventListener('click', async ev => {
     case 'drcopy': { const el=$('#dr-text'); if(el&&el.value.trim()){ if(!(await copyText(el.value))) el.select(); } else toast('Draft a message first'); break; }
     case 'drsave': { const el=$('#dr-text'); if(el&&el.value.trim()){ await saveDraftText(UI.drawer.id, el.value, UI.dr.purpose, UI.dr.channel); toast('Draft saved. Find it in Activate.'); } break; }
     case 'drsent': { const el=$('#dr-text'); const v=el?el.value:''; await markSent(UI.drawer.id, v, UI.dr.channel, UI.dr.purpose); const el2=$('#dr-text'); if(el2) el2.value=''; break; }
-    case 'gmail': { const el=$('#dr-text'); if(!el||!el.value.trim()){ toast('Draft the email first'); break; } gmailDraft(UI.drawer.id, el.value); break; }
+    case 'gmail': { const el=$('#dr-text'); if(!el||!el.value.trim()){ toast('Draft the email first'); break; } const txt=el.value, id=UI.drawer.id;
+      if(G.googleConnected()) gmailDraft(id, txt); else G.connectGoogle(SET().googleClientId).then(()=>gmailDraft(id, txt)).catch(e=>toast(e.message)); break; }
     case 'gmailopen': { const el=$('#dr-text'); const c=E(BYID.get(UI.drawer.id)); const {subject,body}=splitSubject(el?el.value:''); window.open(G.gmailComposeUrl({to:c.e||'',subject,body}),'_blank','noopener'); break; }
     case 'gconnect': { G.connectGoogle(SET().googleClientId).then(()=>{ toast('Google connected'); render(); }).catch(e=>toast(e.message)); break; }
     case 'gdisconnect': G.disconnectGoogle(); toast('Google disconnected'); render(); break;
     case 'evopen': { const c=E(BYID.get(UI.drawer.id)); const a=eventArgs(c); if(!a){ toast('Pick a date and a time'); break; } window.open(G.calendarTemplateUrl(a),'_blank','noopener'); UI.ev={open:true,done:'Opened Google Calendar with the event filled in. Save it there.'}; afterMeetingBooked(c,a); break; }
     case 'replied': markReplied(UI.drawer.id); break;
     case 'prep': prepBrief(UI.drawer.id); break;
-    case 'evcreate': UI.ev=Object.assign({},UI.ev,{open:true}); calendarEvent(UI.drawer.id); break;
+    case 'evcreate': { UI.ev=Object.assign({},UI.ev,{open:true}); const id=UI.drawer.id; if(G.googleConnected()) calendarEvent(id); else G.connectGoogle(SET().googleClientId).then(()=>calendarEvent(id)).catch(e=>toast(e.message)); break; }
     case 'adraft': { const picks=activationPicks(UI.act.goal,UI.act.n).filter(c=>!UI.act.off.has(c.id)); draftBatch(picks.map(c=>c.id), UI.act.purpose, UI.act.channel); break; }
     case 'saveset': saveSettings(); break;
     case 'showkey': { const el=$('#set-key'); if(el) el.type=el.type==='password'?'text':'password'; break; }
@@ -1106,7 +1107,7 @@ function vSettings(){
       <div style="display:flex;gap:8px;align-items:center;margin-top:10px"><button class="btn sm" data-act="testkey">Save and test</button><span class="hint">${esc(UI.keyMsg||'')}</span></div></section>
     <section class="card pad"><h2>Google (Gmail drafts, Calendar events)</h2><div class="hint" style="margin-bottom:10px">Paste the OAuth client ID from your Google Cloud project (setup steps in the README). Without it, the buttons open pre-filled Gmail and Calendar pages instead.</div>
       <div class="kv"><span class="k">Client ID</span><input class="inp mono" id="set-gid" value="${esc(s.googleClientId)}" placeholder="1234-abc.apps.googleusercontent.com" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="url">${s.googleClientId&&!/^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(s.googleClientId)?'<span class="hint" style="grid-column:2;color:var(--danger)">This does not look like a client ID. It should be digits, a dash, letters and digits, then .apps.googleusercontent.com</span>':''}
-      <span class="k">Status</span><span>${gOn?'<span class="st st-met">Connected for this session</span> <button class="btn sm ghost" data-act="gdisconnect">Disconnect</button>':s.googleClientId?'<button class="btn sm" data-act="gconnect">Connect Google</button>':'<span class="hint">Add a client ID, save, then connect.</span>'}</span></div></section>
+      <span class="k">Status</span><span>${gOn?'<span class="st st-met">Connected (renews with one tap when it expires)</span> <button class="btn sm ghost" data-act="gdisconnect">Disconnect</button>':s.googleClientId?'<button class="btn sm" data-act="gconnect">Connect Google</button>':'<span class="hint">Add a client ID, save, then connect.</span>'}</span></div></section>
     <section class="card pad"><h2>Automatic tags</h2><div class="hint" style="margin-bottom:10px">One rule per line: <span class="mono">Company = Tag</span>. Applied to everyone at that company.</div>
       <textarea class="inp mono" id="set-rules" style="min-height:90px" placeholder="Lincoln International = Ex-Lincoln&#10;Houlihan Lokey = Colleague">${esc(s.tagRules)}</textarea></section>
     <section class="card pad"><h2>Your data</h2>
@@ -1116,6 +1117,7 @@ function vSettings(){
       <div class="drow" style="flex-direction:column;align-items:stretch"><div><b>Encrypted copy for the repo</b><div class="hint">Creates <span class="mono">vault.json</span>, readable only with your passphrase. Commit it as <span class="mono">data/vault.json</span> so any browser can unlock your network. Your API key is never included.</div></div>
         <div style="display:flex;gap:6px;flex-wrap:wrap"><input class="inp" type="password" id="vp1" placeholder="New passphrase" autocomplete="new-password" style="flex:1;min-width:150px"><input class="inp" type="password" id="vp2" placeholder="Repeat it" autocomplete="new-password" style="flex:1;min-width:150px"><button class="btn sm" data-act="vaultmake">Create vault.json</button></div>
         ${UI.vaultMsg?`<div class="hint">${esc(UI.vaultMsg)}</div>`:''}</div>
+      <div class="drow"><div><b>Storage on this device</b><div class="hint">${UI.persist===true?'Protected: this browser has agreed to keep your data.':UI.persist===false?'Not protected: the browser may clear it. On iPhone, do not use Private Browsing, and keep using the same entry point (Safari or the home-screen icon, not both).':'Checking…'}</div></div></div>
       <div class="drow"><div><b>Delete everything on this device</b><div class="hint">Contacts, notes, to-dos and settings in this browser. The repo is not touched.</div></div><button class="btn sm" data-act="wipe" style="${UI.wipeArm?'background:var(--danger);color:#fff;border-color:var(--danger)':''}">${UI.wipeArm?'Click again to delete':'Delete'}</button></div>
     </section>
   </div>`;
@@ -1124,6 +1126,7 @@ function vSettings(){
 /* ---------------------------------------------------------------- boot */
 (async function boot(){
   await connect();
+  try{ UI.persist = navigator.storage&&navigator.storage.persisted ? await navigator.storage.persisted() : null; }catch(e){ UI.persist=null; }
   const gm=(location.hash||'').match(/^#gid=([0-9a-z.\-]+)$/i);
   if(gm && db){ const cur=Object.assign({},S.settings||{},{googleClientId:gm[1].toLowerCase()}); S.settings=cur; await db.collection('meta').doc('settings').set(cur); history.replaceState(null,'','#settings'); setTimeout(()=>toast('Google client ID saved. Tap Connect Google.'),300); }
   const v=(location.hash||'#home').slice(1); UI.view=['home','activate','people','companies','tasks','journal','settings'].includes(v)?v:'home';
