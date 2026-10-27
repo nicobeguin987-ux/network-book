@@ -1050,9 +1050,10 @@ async function checkVault(){
   try{ const r=await fetch('data/vault.json',{cache:'no-store'}); if(r.ok){ const j=await r.json(); if(j&&j.app==='network-book'&&j.data){ VAULT=j; render(); } } }catch(e){ /* no bundle */ }
 }
 async function unlockVault(){
-  if(!VAULT||!needDb()) return; const pass=(field('vpass')||'').trim().toLowerCase().replace(/[‐-―−]/g,'-'); if(!pass){ toast('Type the passphrase'); return; }
+  if(!VAULT||!needDb()) return; const raw=(field('vpass')||'').trim(); const pass=raw; if(!pass){ toast('Type the passphrase'); return; }
   UI.vmsg='Decrypting…'; render();
-  try{ const j=await decryptJson(VAULT, pass); await applyDump(j.stores); UI.vmsg=''; toast('Unlocked. Your network is ready.'); location.hash='#home'; setView('home'); }
+  const alt=raw.toLowerCase().replace(/[‐-―−]/g,'-');
+  try{ let j; try{ j=await decryptJson(VAULT, pass); }catch(e1){ if(e1.code==='bad_passphrase'&&alt!==raw) j=await decryptJson(VAULT, alt); else throw e1; } await applyDump(j.stores); UI.vmsg=''; toast('Unlocked. Your network is ready.'); location.hash='#home'; setView('home'); }
   catch(e){ UI.vmsg=e.code==='bad_passphrase'?'That passphrase does not match. Check capitals and spaces.':'Could not open the saved data: '+e.message; render(); }
 }
 async function makeVault(){
