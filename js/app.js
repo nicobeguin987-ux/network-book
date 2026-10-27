@@ -1124,6 +1124,8 @@ function vSettings(){
 /* ---------------------------------------------------------------- boot */
 (async function boot(){
   await connect();
+  const gm=(location.hash||'').match(/^#gid=([0-9a-z.\-]+)$/i);
+  if(gm && db){ const cur=Object.assign({},S.settings||{},{googleClientId:gm[1].toLowerCase()}); S.settings=cur; await db.collection('meta').doc('settings').set(cur); history.replaceState(null,'','#settings'); setTimeout(()=>toast('Google client ID saved. Tap Connect Google.'),300); }
   const v=(location.hash||'#home').slice(1); UI.view=['home','activate','people','companies','tasks','journal','settings'].includes(v)?v:'home';
   document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('on',a.dataset.v===UI.view));
   checkVault();
